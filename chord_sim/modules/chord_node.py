@@ -339,114 +339,123 @@ class ChordNode:
     #       実システムでは一定回数リトライを行い、それでもダメな場合は ChordNode.QUERIED_DATA_NOT_FOUND_STR を返すという
     #       形にしなければならない at global_get
     def global_get(self, data_id : int) -> str:
+        if self.node_info.lock_of_datastore.acquire(timeout=gval.LOCK_ACQUIRE_TIMEOUT) == False:
+            ChordUtil.dprint("global_get_0_0," + ChordUtil.gen_debug_str_of_node(self.node_info) + ","
+                             + "LOCK_ACQUIRE_TIMEOUT")
+            return ChordNode.QUERIED_DATA_NOT_FOUND_STR, None
+
         ChordUtil.dprint("global_get_0," + ChordUtil.gen_debug_str_of_node(self.node_info) + ","
                          + ChordUtil.gen_debug_str_of_data(data_id))
 
+        try:
         # try:
             # target_node = self.router.find_successor(data_id)
             # got_value_str = target_node.endpoints.grpc__get(data_id)
 
-        ret = self.router.find_successor(data_id)
-        if (ret.is_ok):
-            target_node: 'ChordNode' = cast('ChordNode', ret.result)
-            got_value_str = target_node.endpoints.grpc__get(data_id)
-        else:
-            # ret.err_code == ErrorCode.AppropriateNodeNotFoundException_CODE || ret.err_code == ErrorCode.InternalControlFlowException_CODE
-            # || ret.err_code == ErrorCode.NodeIsDownedException_CODE
-
-            # 適切なノードを得ることができなかった、もしくは、内部エラーが発生した
-
-            # リトライに必要な情報をクラス変数に設定しておく
-            ChordNode.need_getting_retry_data_id = data_id
-            ChordNode.need_getting_retry_node = self
-
-            ChordUtil.dprint("global_get_0_1,FIND_NODE_FAILED," + ChordUtil.gen_debug_str_of_node(self.node_info) + ","
-                             + ChordUtil.gen_debug_str_of_data(data_id))
-            # 処理を終える
-            return ChordNode.OP_FAIL_DUE_TO_FIND_NODE_FAIL_STR
-
-        # except (AppropriateNodeNotFoundException, InternalControlFlowException, NodeIsDownedExceptiopn):
-        #     # 適切なノードを得ることができなかった、もしくは、内部エラーが発生した
-        #
-        #     # リトライに必要な情報をクラス変数に設定しておく
-        #     ChordNode.need_getting_retry_data_id = data_id
-        #     ChordNode.need_getting_retry_node = self
-        #
-        #     ChordUtil.dprint("global_get_0_1,FIND_NODE_FAILED," + ChordUtil.gen_debug_str_of_node(self.node_info) + ","
-        #                      + ChordUtil.gen_debug_str_of_data(data_id))
-        #     # 処理を終える
-        #     return ChordNode.OP_FAIL_DUE_TO_FIND_NODE_FAIL_STR
-
-        is_data_got_on_recovery = False
-        # 返ってきた値が ChordNode.QUERIED_DATA_NOT_FOUND_STR だった場合、target_nodeから
-        # 一定数の predecessorを辿ってそれぞれにも data_id に対応するデータを持っていないか問い合わせるようにする
-        if got_value_str == ChordNode.QUERIED_DATA_NOT_FOUND_STR:
-            tried_node_num = 0
-            # 最初は処理の都合上、最初にgetをかけたノードを設定する
-            cur_predecessor : 'ChordNode' = target_node
-            while tried_node_num < ChordNode.GLOBAL_GET_NEAR_NODES_TRY_MAX_NODES:
-                ChordUtil.dprint("global_get_1," + ChordUtil.gen_debug_str_of_node(self.node_info) + ","
-                                 + ChordUtil.gen_debug_str_of_data(data_id) + ","
-                                 + got_value_str + "," + str(tried_node_num))
-
-                got_value_str, tmp_cur_predecessor =  cur_predecessor.endpoints.grpc__global_get_recover_prev(data_id)
-                if got_value_str != ChordNode.QUERIED_DATA_NOT_FOUND_STR:
-                    is_data_got_on_recovery = True
-                    break
-                else:
-                    tried_node_num += 1
-
-                if tmp_cur_predecessor != None:
-                    cur_predecessor = cast('ChordNode', tmp_cur_predecessor)
-
-        # 返ってきた値が ChordNode.QUERIED_DATA_NOT_FOUND_STR だった場合、target_nodeから
-        # 一定数の successor を辿ってそれぞれにも data_id に対応するデータを持っていないか問い合わせるようにする
-        if got_value_str == ChordNode.QUERIED_DATA_NOT_FOUND_STR:
-            tried_node_num = 0
-            # 最初は処理の都合上、最初にgetをかけたノードを設定する
-            cur_successor = target_node
-            while tried_node_num < ChordNode.GLOBAL_GET_NEAR_NODES_TRY_MAX_NODES:
-                ChordUtil.dprint("global_get_2," + ChordUtil.gen_debug_str_of_node(self.node_info) + ","
-                                 + ChordUtil.gen_debug_str_of_data(data_id) + ","
-                                 + got_value_str + "," + str(tried_node_num))
-
-                got_value_str, tmp_cur_successor =  cur_successor.endpoints.grpc__global_get_recover_succ(data_id)
-                if got_value_str != ChordNode.QUERIED_DATA_NOT_FOUND_STR:
-                    is_data_got_on_recovery = True
-                    break
-                else:
-                    tried_node_num += 1
-
-                if tmp_cur_successor != None:
-                    cur_successor = cast('ChordNode', tmp_cur_successor)
-
-        # リトライを試みたであろう時の処理
-        if ChordNode.need_getting_retry_data_id != -1:
-            if got_value_str != ChordNode.QUERIED_DATA_NOT_FOUND_STR:
-                # リトライに成功した
-                ChordUtil.dprint("global_get_2_6,retry of global_get is succeeded")
-                # リトライは不要なためクリア
-                ChordNode.need_getting_retry_data_id = -1
-                ChordNode.need_getting_retry_node = None
+            ret = self.router.find_successor(data_id)
+            if (ret.is_ok):
+                target_node: 'ChordNode' = cast('ChordNode', ret.result)
+                got_value_str = target_node.endpoints.grpc__get(data_id)
             else:
-                # リトライに失敗した（何もしない）
-                ChordUtil.dprint("global_get_2_7,retry of global_get is failed")
-                pass
+                # ret.err_code == ErrorCode.AppropriateNodeNotFoundException_CODE || ret.err_code == ErrorCode.InternalControlFlowException_CODE
+                # || ret.err_code == ErrorCode.NodeIsDownedException_CODE
 
-        # 取得に失敗した場合はリトライに必要な情報をクラス変数に設定しておく
-        if got_value_str == ChordNode.QUERIED_DATA_NOT_FOUND_STR:
-            ChordNode.need_getting_retry_data_id = data_id
-            ChordNode.need_getting_retry_node = self
+                # 適切なノードを得ることができなかった、もしくは、内部エラーが発生した
 
-        if is_data_got_on_recovery == True:
-            # リカバリ処理でデータを取得した場合は自身のデータストアにもその値を保持しておく
-            self.data_store.store_new_data(data_id, got_value_str)
+                # リトライに必要な情報をクラス変数に設定しておく
+                ChordNode.need_getting_retry_data_id = data_id
+                ChordNode.need_getting_retry_node = self
 
-        # TODO: x direct access to node_info of target_node at global_get
-        ChordUtil.dprint("global_get_3," + ChordUtil.gen_debug_str_of_node(self.node_info) + ","
-              + ChordUtil.gen_debug_str_of_node(target_node.node_info) + ","
-              + ChordUtil.gen_debug_str_of_data(data_id) + "," + got_value_str)
-        return got_value_str
+                ChordUtil.dprint("global_get_0_1,FIND_NODE_FAILED," + ChordUtil.gen_debug_str_of_node(self.node_info) + ","
+                                 + ChordUtil.gen_debug_str_of_data(data_id))
+                # 処理を終える
+                return ChordNode.OP_FAIL_DUE_TO_FIND_NODE_FAIL_STR
+
+            # except (AppropriateNodeNotFoundException, InternalControlFlowException, NodeIsDownedExceptiopn):
+            #     # 適切なノードを得ることができなかった、もしくは、内部エラーが発生した
+            #
+            #     # リトライに必要な情報をクラス変数に設定しておく
+            #     ChordNode.need_getting_retry_data_id = data_id
+            #     ChordNode.need_getting_retry_node = self
+            #
+            #     ChordUtil.dprint("global_get_0_1,FIND_NODE_FAILED," + ChordUtil.gen_debug_str_of_node(self.node_info) + ","
+            #                      + ChordUtil.gen_debug_str_of_data(data_id))
+            #     # 処理を終える
+            #     return ChordNode.OP_FAIL_DUE_TO_FIND_NODE_FAIL_STR
+
+            is_data_got_on_recovery = False
+            # 返ってきた値が ChordNode.QUERIED_DATA_NOT_FOUND_STR だった場合、target_nodeから
+            # 一定数の predecessorを辿ってそれぞれにも data_id に対応するデータを持っていないか問い合わせるようにする
+            if got_value_str == ChordNode.QUERIED_DATA_NOT_FOUND_STR:
+                tried_node_num = 0
+                # 最初は処理の都合上、最初にgetをかけたノードを設定する
+                cur_predecessor : 'ChordNode' = target_node
+                while tried_node_num < ChordNode.GLOBAL_GET_NEAR_NODES_TRY_MAX_NODES:
+                    ChordUtil.dprint("global_get_1," + ChordUtil.gen_debug_str_of_node(self.node_info) + ","
+                                     + ChordUtil.gen_debug_str_of_data(data_id) + ","
+                                     + got_value_str + "," + str(tried_node_num))
+
+                    got_value_str, tmp_cur_predecessor =  cur_predecessor.endpoints.grpc__global_get_recover_prev(data_id)
+                    if got_value_str != ChordNode.QUERIED_DATA_NOT_FOUND_STR:
+                        is_data_got_on_recovery = True
+                        break
+                    else:
+                        tried_node_num += 1
+
+                    if tmp_cur_predecessor != None:
+                        cur_predecessor = cast('ChordNode', tmp_cur_predecessor)
+
+            # 返ってきた値が ChordNode.QUERIED_DATA_NOT_FOUND_STR だった場合、target_nodeから
+            # 一定数の successor を辿ってそれぞれにも data_id に対応するデータを持っていないか問い合わせるようにする
+            if got_value_str == ChordNode.QUERIED_DATA_NOT_FOUND_STR:
+                tried_node_num = 0
+                # 最初は処理の都合上、最初にgetをかけたノードを設定する
+                cur_successor = target_node
+                while tried_node_num < ChordNode.GLOBAL_GET_NEAR_NODES_TRY_MAX_NODES:
+                    ChordUtil.dprint("global_get_2," + ChordUtil.gen_debug_str_of_node(self.node_info) + ","
+                                     + ChordUtil.gen_debug_str_of_data(data_id) + ","
+                                     + got_value_str + "," + str(tried_node_num))
+
+                    got_value_str, tmp_cur_successor =  cur_successor.endpoints.grpc__global_get_recover_succ(data_id)
+                    if got_value_str != ChordNode.QUERIED_DATA_NOT_FOUND_STR:
+                        is_data_got_on_recovery = True
+                        break
+                    else:
+                        tried_node_num += 1
+
+                    if tmp_cur_successor != None:
+                        cur_successor = cast('ChordNode', tmp_cur_successor)
+
+            # リトライを試みたであろう時の処理
+            if ChordNode.need_getting_retry_data_id != -1:
+                if got_value_str != ChordNode.QUERIED_DATA_NOT_FOUND_STR:
+                    # リトライに成功した
+                    ChordUtil.dprint("global_get_2_6,retry of global_get is succeeded")
+                    # リトライは不要なためクリア
+                    ChordNode.need_getting_retry_data_id = -1
+                    ChordNode.need_getting_retry_node = None
+                else:
+                    # リトライに失敗した（何もしない）
+                    ChordUtil.dprint("global_get_2_7,retry of global_get is failed")
+                    pass
+
+            # 取得に失敗した場合はリトライに必要な情報をクラス変数に設定しておく
+            if got_value_str == ChordNode.QUERIED_DATA_NOT_FOUND_STR:
+                ChordNode.need_getting_retry_data_id = data_id
+                ChordNode.need_getting_retry_node = self
+
+            if is_data_got_on_recovery == True:
+                # リカバリ処理でデータを取得した場合は自身のデータストアにもその値を保持しておく
+                self.data_store.store_new_data(data_id, got_value_str)
+
+            # TODO: x direct access to node_info of target_node at global_get
+            ChordUtil.dprint("global_get_3," + ChordUtil.gen_debug_str_of_node(self.node_info) + ","
+                  + ChordUtil.gen_debug_str_of_node(target_node.node_info) + ","
+                  + ChordUtil.gen_debug_str_of_data(data_id) + "," + got_value_str)
+            return got_value_str
+
+        finally:
+            self.node_info.lock_of_datastore.release()
 
     # 得られた value の文字列を返す
     def get(self, data_id : int, for_recovery = False) -> str:

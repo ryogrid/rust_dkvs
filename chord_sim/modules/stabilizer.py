@@ -331,7 +331,11 @@ class Stabilizer:
 
                 # TODO: get_all_tantou_data call at partial_join_op
                 #pred_tantou_datas : List[DataIdAndValue] = self_predeessor_node.endpoints.grpc__get_all_tantou_data()
-
+                ret = self_predeessor_node.endpoints.grpc__get_all_tantou_data()
+                if (ret.is_ok):
+                    pred_tantou_datas : List[DataIdAndValue] = cast(List[DataIdAndValue], ret.result)
+                else:  # ret.err_code == ErrorCode.InternalControlFlowException_CODE
+                    pred_tantou_datas : List[DataIdAndValue] = []
 
                 for iv_entry in pred_tantou_datas:
                     self.existing_node.data_store.store_new_data(iv_entry.data_id,

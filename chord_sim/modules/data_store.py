@@ -3,7 +3,7 @@
 from typing import Dict, List, Optional, cast, TYPE_CHECKING
 
 from .chord_util import ChordUtil, KeyValue, DataIdAndValue, PResult, ErrorCode
-import gval
+import modules.gval as gval
 
 if TYPE_CHECKING:
     from .chord_node import ChordNode
@@ -29,18 +29,18 @@ class DataStore:
         # ChordUtil.dprint("store_new_data_1," + ChordUtil.gen_debug_str_of_node(self.existing_node.node_info) + ","
         #                  + ChordUtil.gen_debug_str_of_data(data_id))
 
-        with self.existing_node.node_info.lock_of_datastore:
-            di_entry = DataIdAndValue(data_id=data_id, value_data=value_str)
+        # with self.existing_node.node_info.lock_of_datastore:
+        di_entry = DataIdAndValue(data_id=data_id, value_data=value_str)
 
-            # デバッグプリント
-            ChordUtil.dprint_data_storage_operations(self.existing_node.node_info,
-                                                     DataStore.DATA_STORE_OP_DIRECT_STORE,
-                                                     data_id
-                                                     )
+        # デバッグプリント
+        ChordUtil.dprint_data_storage_operations(self.existing_node.node_info,
+                                                 DataStore.DATA_STORE_OP_DIRECT_STORE,
+                                                 data_id
+                                                 )
 
-            self.stored_data[str(data_id)] = di_entry
-            # デバッグのためにグローバル変数の形で管理されているデータのロケーション情報を更新する
-            ChordUtil.add_data_placement_info(data_id, self.existing_node.node_info)
+        self.stored_data[str(data_id)] = di_entry
+        # デバッグのためにグローバル変数の形で管理されているデータのロケーション情報を更新する
+        ChordUtil.add_data_placement_info(data_id, self.existing_node.node_info)
 
     # # DataStoreクラスオブジェクトのデータ管理の枠組みに従った、各関連フィールドの一貫性を維持したまま
     # # データ削除処理を行うアクセサメソッド
@@ -190,11 +190,11 @@ class DataStore:
 
     # 存在しないKeyが与えられた場合 KeyErrorがraiseされる
     def get(self, data_id : int) -> PResult[Optional[DataIdAndValue]]:
-        with self.existing_node.node_info.lock_of_datastore:
-            try:
-                return PResult.Ok(self.stored_data[str(data_id)])
-            except KeyError:
-                return PResult.Err(None, ErrorCode.KeyError_CODE)
+        # with self.existing_node.node_info.lock_of_datastore:
+        try:
+            return PResult.Ok(self.stored_data[str(data_id)])
+        except KeyError:
+            return PResult.Err(None, ErrorCode.KeyError_CODE)
 
 
     # 全ての保持しているデータを返す
