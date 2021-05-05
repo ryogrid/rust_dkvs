@@ -3,6 +3,7 @@
 from typing import Dict, List, Optional, cast, TYPE_CHECKING
 
 from .chord_util import ChordUtil, KeyValue, DataIdAndValue, PResult, ErrorCode
+import gval
 
 if TYPE_CHECKING:
     from .chord_node import ChordNode
@@ -41,30 +42,53 @@ class DataStore:
             # デバッグのためにグローバル変数の形で管理されているデータのロケーション情報を更新する
             ChordUtil.add_data_placement_info(data_id, self.existing_node.node_info)
 
-    # DataStoreクラスオブジェクトのデータ管理の枠組みに従った、各関連フィールドの一貫性を維持したまま
-    # データ削除処理を行うアクセサメソッド
-    def remove_data(self, data_id: int):
-        with self.existing_node.node_info.lock_of_datastore:
-            try:
-                del self.stored_data[str(data_id)]
-            except KeyError:
-                # 本来は起きてはならないエラーだが対処のし様もないのでワーニングだけ出力する
-                ChordUtil.dprint("remove_data_1," + ChordUtil.gen_debug_str_of_node(self.existing_node.node_info) + ","
-                                 + ChordUtil.gen_debug_str_of_data(data_id)
-                                 + ",WARNING__REMOVE_TARGET_DATA_NOT_EXIST")
-                return
-
-            # デバッグのためにグローバル変数の形で管理されているデータのロケーション情報を更新する
-            ChordUtil.remove_data_placement_info(data_id, self.existing_node.node_info)
-            # デバッグプリント
-            ChordUtil.dprint_data_storage_operations(self.existing_node.node_info,
-                                                     DataStore.DATA_STORE_OP_DIRECT_REMOVE,
-                                                     data_id
-                                                     )
+    # # DataStoreクラスオブジェクトのデータ管理の枠組みに従った、各関連フィールドの一貫性を維持したまま
+    # # データ削除処理を行うアクセサメソッド
+    # def remove_data(self, data_id: int):
+    #     with self.existing_node.node_info.lock_of_datastore:
+    #         try:
+    #             del self.stored_data[str(data_id)]
+    #         except KeyError:
+    #             # 本来は起きてはならないエラーだが対処のし様もないのでワーニングだけ出力する
+    #             ChordUtil.dprint("remove_data_1," + ChordUtil.gen_debug_str_of_node(self.existing_node.node_info) + ","
+    #                              + ChordUtil.gen_debug_str_of_data(data_id)
+    #                              + ",WARNING__REMOVE_TARGET_DATA_NOT_EXIST")
+    #             return
+    #
+    #         # デバッグのためにグローバル変数の形で管理されているデータのロケーション情報を更新する
+    #         ChordUtil.remove_data_placement_info(data_id, self.existing_node.node_info)
+    #         # デバッグプリント
+    #         ChordUtil.dprint_data_storage_operations(self.existing_node.node_info,
+    #                                                  DataStore.DATA_STORE_OP_DIRECT_REMOVE,
+    #                                                  data_id
+    #                                                  )
 
     # 自ノードが担当ノードとなる保持データを全て返す
-    def get_all_tantou_data(self, node_id : Optional[int] = None) -> List[DataIdAndValue]:
-        with self.existing_node.node_info.lock_of_datastore:
+    def get_all_tantou_data(self, node_id : Optional[int] = None) -> PResult[Optional[List[DataIdAndValue]]]:
+        #with self.existing_node.node_info.lock_of_datastore:
+        if self.existing_node.node_info.lock_of_pred_info.acquire(timeout=gval.LOCK_ACQUIRE_TIMEOUT) == False:
+            ChordUtil.dprint(
+                "get_all_tantou_data_0," + ChordUtil.gen_debug_str_of_node(self.existing_node.node_info) + ","
+                + "LOCK_ACQUIRE_TIMEOUT")
+            #raise InternalControlFlowException("gettting lock of predecessor_info is timedout.")
+            return PResult.Err(None, ErrorCode.InternalControlFlowException_CODE)
+        if self.existing_node.node_info.lock_of_succ_infos.acquire(timeout=gval.LOCK_ACQUIRE_TIMEOUT) == False:
+            self.existing_node.node_info.lock_of_pred_info.release()
+            ChordUtil.dprint(
+                "get_all_tantou_data_0_1," + ChordUtil.gen_debug_str_of_node(self.existing_node.node_info) + ","
+                + "LOCK_ACQUIRE_TIMEOUT")
+            #raise InternalControlFlowException("gettting lock of succcessor_info_list is timedout.")
+            return PResult.Err(None, ErrorCode.InternalControlFlowException_CODE)
+        if self.existing_node.node_info.lock_of_datastore.acquire(timeout=gval.LOCK_ACQUIRE_TIMEOUT) == False:
+            self.existing_node.node_info.lock_of_pred_info.release()
+            self.existing_node.node_info.lock_of_succ_infos.release()
+            ChordUtil.dprint(
+                "get_all_tantou_data_0_2," + ChordUtil.gen_debug_str_of_node(self.existing_node.node_info) + ","
+                + "LOCK_ACQUIRE_TIMEOUT")
+            #raise InternalControlFlowException("gettting lock of succcessor_info_list is timedout.")
+            return PResult.Err(None, ErrorCode.InternalControlFlowException_CODE)
+
+        try:
             ChordUtil.dprint(
                 "pass_tantou_data_for_replication_1," + ChordUtil.gen_debug_str_of_node(self.existing_node.node_info))
 
@@ -72,7 +96,8 @@ class DataStore:
                 ChordUtil.dprint(
                     "pass_tantou_data_for_replication_2," + ChordUtil.gen_debug_str_of_node(
                         self.existing_node.node_info))
-                return []
+                #return []
+                return PResult.Err(None, ErrorCode.InternalControlFlowException_CODE)
 
             if node_id != None:
                 pred_id = cast(int, node_id)
@@ -88,7 +113,12 @@ class DataStore:
                              # + ChordUtil.gen_debug_str_of_node(self.existing_node.node_info.predecessor_info) + ","
                              + str(len(ret_data_list)))
 
-        return ret_data_list
+            return PResult.Ok(ret_data_list)
+
+        finally:
+            self.existing_node.node_info.lock_of_datastore.release()
+            self.existing_node.node_info.lock_of_succ_infos.release()
+            self.existing_node.node_info.lock_of_pred_info.release()
 
     # レプリカデータを受け取る
     # 他のノードが、保持しておいて欲しいレプリカを渡す際に呼び出される.
@@ -131,7 +161,14 @@ class DataStore:
             ChordUtil.dprint("delegate_my_tantou_data_1," + ChordUtil.gen_debug_str_of_node(self.existing_node.node_info) + ","
                              + ChordUtil.gen_debug_str_of_data(node_id))
             ret_datas : List[KeyValue] = []
-            tantou_data: List[DataIdAndValue] = self.get_all_tantou_data(node_id)
+            #tantou_data: List[DataIdAndValue] = self.get_all_tantou_data(node_id)
+            ret = self.get_all_tantou_data(node_id)
+            if (ret.is_ok):
+                tantou_data: List[DataIdAndValue] = cast(List[DataIdAndValue], ret.result)
+            else:  # ret.err_code == ErrorCode.InternalControlFlowException_CODE
+                # TODO: 本来はデータの委譲が失敗することになるので、join処理のリトライを行わせる必要があるが面倒なので、
+                #       ひとまず、ここでエラーが返ってくることは想定しないことにする
+                tantou_data: List[DataIdAndValue] = []
 
             for entry in tantou_data:
                 # Chordネットワークを右回りにたどった時に、データの id (data_id) が呼び出し元の node_id から
@@ -181,16 +218,22 @@ class DataStore:
     def distribute_replica(self):
         ChordUtil.dprint("distribute_replica_1," + ChordUtil.gen_debug_str_of_node(self.existing_node.node_info))
 
-        tantou_data_list: List[DataIdAndValue] = self.get_all_tantou_data()
+        #tantou_data_list: List[DataIdAndValue] = self.get_all_tantou_data()
+        ret = self.get_all_tantou_data()
+        if (ret.is_ok):
+            tantou_data_list: List[DataIdAndValue] = cast(List[DataIdAndValue], ret.result)
+        else:  # ret.err_code == ErrorCode.InternalControlFlowException_CODE
+            # putされた時にいずれ受け取るので良いことにする
+            tantou_data_list: List[DataIdAndValue] = []
 
         # レプリカを successorList内のノードに渡す（手抜きでputされたもの含めた全てを渡してしまう）
         for succ_info in self.existing_node.node_info.successor_info_list:
             # try:
                 # succ_node: ChordNode = ChordUtil.get_node_by_address(succ_info.address_str)
-            ret = ChordUtil.get_node_by_address(succ_info.address_str)
-            if (ret.is_ok):
-                succ_node : 'ChordNode' = cast('ChordNode', ret.result)
-            else:  # ret.err_code == ErrorCode.InternalControlFlowException_CODE || ret.err_code == ErrorCode.NodeIsDownedException_CODE
+            ret2 = ChordUtil.get_node_by_address(succ_info.address_str)
+            if (ret2.is_ok):
+                succ_node : 'ChordNode' = cast('ChordNode', ret2.result)
+            else:  # ret2.err_code == ErrorCode.InternalControlFlowException_CODE || ret.err_code == ErrorCode.NodeIsDownedException_CODE
                 # stabilize処理 と put処理 を経ていずれ正常な状態に
                 # なるため、ここでは何もせずに次のノードに移る
                 ChordUtil.dprint(

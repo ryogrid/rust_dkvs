@@ -35,10 +35,10 @@ class Endpoints:
     def grpc__global_delete(self, data_id : int) -> bool:
         return self.existing_node.global_delete(data_id)
 
-    def grpc__pass_node_info(self) -> 'NodeInfo':
-        return self.existing_node.pass_node_info()
+    # def grpc__pass_node_info(self) -> 'NodeInfo':
+    #     return self.existing_node.pass_node_info()
 
-    def grpc__get_all_tantou_data(self, node_id : Optional[int] = None) -> List[DataIdAndValue]:
+    def grpc__get_all_tantou_data(self, node_id : Optional[int] = None) -> PResult[Optional[List[DataIdAndValue]]]:
         return self.existing_node.data_store.get_all_tantou_data(node_id)
 
     def grpc__receive_replica(self, pass_datas : List[DataIdAndValue]):
