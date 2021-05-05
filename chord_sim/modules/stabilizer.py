@@ -376,7 +376,7 @@ class Stabilizer:
             # successor : 'ChordNode' = ChordUtil.get_node_by_address(self.existing_node.node_info.successor_info_list[0].address_str)
             ret4 = ChordUtil.get_node_by_address(self.existing_node.node_info.successor_info_list[0].address_str)
             if (ret4.is_ok):
-                successor : 'ChordNode' = cast('ChordNode', ret3.result)
+                successor : 'ChordNode' = cast('ChordNode', ret4.result)
                 # TODO: get_all_data call at partial_join_op
                 passed_all_replica: List[DataIdAndValue] = successor.endpoints.grpc__get_all_data()
                 self.existing_node.data_store.store_replica_of_multi_masters(passed_all_replica)
