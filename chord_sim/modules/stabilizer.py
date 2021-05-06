@@ -242,8 +242,8 @@ class Stabilizer:
             #raise InternalControlFlowException("gettting lock of succcessor_info_list is timedout.")
             return PResult.Err(False, ErrorCode.InternalControlFlowException_CODE)
         if self.existing_node.node_info.lock_of_datastore.acquire(timeout=gval.LOCK_ACQUIRE_TIMEOUT) == False:
-            self.existing_node.node_info.lock_of_pred_info.release()
             self.existing_node.node_info.lock_of_succ_infos.release()
+            self.existing_node.node_info.lock_of_pred_info.release()
             ChordUtil.dprint(
                 "partial_join_op_2," + ChordUtil.gen_debug_str_of_node(self.existing_node.node_info) + ","
                 + "LOCK_ACQUIRE_TIMEOUT")
@@ -327,13 +327,13 @@ class Stabilizer:
                     self_predeessor_node: 'ChordNode' = cast('ChordNode', ret1.result)
                 else:  # ret.err_code == ErrorCode.InternalControlFlowException_CODE || ret.err_code == ErrorCode.NodeIsDownedException_CODE
                     handle_err()
-                    return PResult.Ok(True)
+                    return PResult.Err(False, ErrorCode.NodeIsDownedException_CODE)
 
                 # TODO: get_all_tantou_data call at partial_join_op
                 #pred_tantou_datas : List[DataIdAndValue] = self_predeessor_node.endpoints.grpc__get_all_tantou_data()
-                ret = self_predeessor_node.endpoints.grpc__get_all_tantou_data()
-                if (ret.is_ok):
-                    pred_tantou_datas : List[DataIdAndValue] = cast(List[DataIdAndValue], ret.result)
+                ret2 = self_predeessor_node.endpoints.grpc__get_all_tantou_data()
+                if (ret2.is_ok):
+                    pred_tantou_datas : List[DataIdAndValue] = cast(List[DataIdAndValue], ret2.result)
                 else:  # ret.err_code == ErrorCode.InternalControlFlowException_CODE
                     pred_tantou_datas : List[DataIdAndValue] = []
 
@@ -355,7 +355,7 @@ class Stabilizer:
                     pass
                 else:  # ret3.err_code == ErrorCode.InternalControlFlowException_CODE || ret3.err_code == ErrorCode.NodeIsDownedException_CODE
                     handle_err()
-                    return PResult.Ok(True)
+                    return PResult.Err(False, ErrorCode.InternalControlFlowException_CODE)
 
                 # except (NodeIsDownedExceptiopn, InternalControlFlowException):
                 #     ChordUtil.dprint("partial_join_op_6,NODE_IS_DOWNED or InternalControlFlowException" + ChordUtil.gen_debug_str_of_node(self.existing_node.node_info) + ","
