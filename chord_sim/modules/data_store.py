@@ -80,8 +80,8 @@ class DataStore:
             #raise InternalControlFlowException("gettting lock of succcessor_info_list is timedout.")
             return PResult.Err(None, ErrorCode.InternalControlFlowException_CODE)
         if self.existing_node.node_info.lock_of_datastore.acquire(timeout=gval.LOCK_ACQUIRE_TIMEOUT) == False:
-            self.existing_node.node_info.lock_of_pred_info.release()
             self.existing_node.node_info.lock_of_succ_infos.release()
+            self.existing_node.node_info.lock_of_pred_info.release()
             ChordUtil.dprint(
                 "get_all_tantou_data_0_2," + ChordUtil.gen_debug_str_of_node(self.existing_node.node_info) + ","
                 + "LOCK_ACQUIRE_TIMEOUT")

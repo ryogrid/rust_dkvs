@@ -275,9 +275,9 @@ class Stabilizer:
             for node_info in self.existing_node.node_info.successor_info_list:
                 # try:
                     #succ : 'ChordNode' = ChordUtil.get_node_by_address(node_info.address_str)
-                ret = ChordUtil.get_node_by_address(node_info.address_str)
-                if (ret.is_ok):
-                    succ: 'ChordNode' = cast('ChordNode', ret.result)
+                ret1 = ChordUtil.get_node_by_address(node_info.address_str)
+                if (ret1.is_ok):
+                    succ: 'ChordNode' = cast('ChordNode', ret1.result)
                     ChordUtil.dprint("partial_join_op_3," + ChordUtil.gen_debug_str_of_node(self.existing_node.node_info) + ","
                                      + ChordUtil.gen_debug_str_of_node(node_info) + "," + str(len(self.existing_node.node_info.successor_info_list)))
 
@@ -322,18 +322,18 @@ class Stabilizer:
                 self_predecessor_info : NodeInfo = cast('NodeInfo', self.existing_node.node_info.predecessor_info)
                 # try:
                     #self_predeessor_node : 'ChordNode' = ChordUtil.get_node_by_address(self_predecessor_info.address_str)
-                ret1 = ChordUtil.get_node_by_address(self_predecessor_info.address_str)
-                if (ret1.is_ok):
-                    self_predeessor_node: 'ChordNode' = cast('ChordNode', ret1.result)
-                else:  # ret.err_code == ErrorCode.InternalControlFlowException_CODE || ret.err_code == ErrorCode.NodeIsDownedException_CODE
+                ret2 = ChordUtil.get_node_by_address(self_predecessor_info.address_str)
+                if (ret2.is_ok):
+                    self_predeessor_node: 'ChordNode' = cast('ChordNode', ret2.result)
+                else:  # ret2.err_code == ErrorCode.InternalControlFlowException_CODE || ret2.err_code == ErrorCode.NodeIsDownedException_CODE
                     handle_err()
                     return PResult.Err(False, ErrorCode.NodeIsDownedException_CODE)
 
                 # TODO: get_all_tantou_data call at partial_join_op
                 #pred_tantou_datas : List[DataIdAndValue] = self_predeessor_node.endpoints.grpc__get_all_tantou_data()
-                ret2 = self_predeessor_node.endpoints.grpc__get_all_tantou_data()
-                if (ret2.is_ok):
-                    pred_tantou_datas : List[DataIdAndValue] = cast(List[DataIdAndValue], ret2.result)
+                ret3 = self_predeessor_node.endpoints.grpc__get_all_tantou_data()
+                if (ret3.is_ok):
+                    pred_tantou_datas : List[DataIdAndValue] = cast(List[DataIdAndValue], ret3.result)
                 else:  # ret.err_code == ErrorCode.InternalControlFlowException_CODE
                     pred_tantou_datas : List[DataIdAndValue] = []
 
@@ -350,10 +350,10 @@ class Stabilizer:
                 # (この呼び出しの中で successor_info_listからの余剰ノードのエントリ削除も行われる）
                 # TODO: check_successor_list_length call at partial_join_op
                 #self_predeessor_node.endpoints.grpc__check_successor_list_length()
-                ret3 = self_predeessor_node.endpoints.grpc__check_successor_list_length()
-                if (ret3.is_ok):
+                ret4 = self_predeessor_node.endpoints.grpc__check_successor_list_length()
+                if (ret4.is_ok):
                     pass
-                else:  # ret3.err_code == ErrorCode.InternalControlFlowException_CODE || ret3.err_code == ErrorCode.NodeIsDownedException_CODE
+                else:  # ret4.err_code == ErrorCode.InternalControlFlowException_CODE || ret4.err_code == ErrorCode.NodeIsDownedException_CODE
                     handle_err()
                     return PResult.Err(False, ErrorCode.InternalControlFlowException_CODE)
 
@@ -374,13 +374,13 @@ class Stabilizer:
             # try:
 
             # successor : 'ChordNode' = ChordUtil.get_node_by_address(self.existing_node.node_info.successor_info_list[0].address_str)
-            ret4 = ChordUtil.get_node_by_address(self.existing_node.node_info.successor_info_list[0].address_str)
-            if (ret4.is_ok):
-                successor : 'ChordNode' = cast('ChordNode', ret4.result)
+            ret5 = ChordUtil.get_node_by_address(self.existing_node.node_info.successor_info_list[0].address_str)
+            if (ret5.is_ok):
+                successor : 'ChordNode' = cast('ChordNode', ret5.result)
                 # TODO: get_all_data call at partial_join_op
                 passed_all_replica: List[DataIdAndValue] = successor.endpoints.grpc__get_all_data()
                 self.existing_node.data_store.store_replica_of_multi_masters(passed_all_replica)
-            else:  # ret4.err_code == ErrorCode.InternalControlFlowException_CODE || ret.err_code == ErrorCode.NodeIsDownedException_CODE
+            else:  # ret5.err_code == ErrorCode.InternalControlFlowException_CODE || ret5.err_code == ErrorCode.NodeIsDownedException_CODE
                 # ノードがダウンしていた場合等は無視して先に進む.
                 # ノードダウンに関する対処とそれに関連したレプリカの適切な配置はそれぞれ stabilize処理 と
                 # put処理 の中で後ほど行われるためここでは対処しない

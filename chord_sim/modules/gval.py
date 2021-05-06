@@ -46,7 +46,7 @@ ID_MAX = ID_SPACE_RANGE - 1
 KEEP_NODE_NUM = 50 #100
 NODE_NUM_MAX = 10000
 
-LOCK_ACQUIRE_TIMEOUT = 3 #10
+LOCK_ACQUIRE_TIMEOUT = 10 #3 #10
 
 # プロセス内の全てのデータへのアクセスに対するロック変数
 # 実装していく過程で細粒度のロックに対応できていない場合や、デバッグ用途に用いる
